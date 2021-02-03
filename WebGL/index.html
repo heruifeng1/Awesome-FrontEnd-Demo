@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+<canvas id="c"></canvas>
+</body>
+<script>
+    var canvas = document.querySelector("#c");
+    var gl = canvas.getContext("webgl2");
+
+    var vertexShaderSource = `#version 300 es
+
+// an attribute is an input (in) to a vertex shader.
+// It will receive data from a buffer
+in vec4 a_position;
+
+// all shaders have a main function
+void main() {
+
+  // gl_Position is a special variable a vertex shader
+  // is responsible for setting
+  gl_Position = a_position;
+}
+`;
+
+    var fragmentShaderSource = `#version 300 es
+
+// fragment shaders don't have a default precision so we need
+// to pick one. highp is a good default. It means "high precision"
+precision highp float;
+
+// we need to declare an output for the fragment shader
+out vec4 outColor;
+
+void main() {
+  // Just set the output to a constant reddish-purple
+  outColor = vec4(1, 0, 0.5, 1);
+}
+`;
+
+    function createShader(gl, type, source) {
+        var shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        var success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        if (success) {
+            return shader;
+        }
+        console.log(gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+    }
+
+    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource)
+    // 用两个着色器生成一个 program
+    function createProgram(gl, vertexShader, fragmentShader) {
+        var program = gl.createProgram();
+        gl.attachShader(program, vertexShader);
+        gl.attachShader(program, fragmentShader);
+        gl.linkProgram(program);
+        var success = gl.getProgramParameter(program, gl.LINK_STATUS);
+        if (success) {
+            return program;
+        }
+    }
+    //这里我们已经成功的再 GPU 上面创建了一个 GLSL程序
+    var program = createProgram(gl, vertexShader, fragmentShader);
+
+    // 下面是提供数据 ->通过 WEBGLAPI 设置状态
+
+    //查找 GLSL 程序中所使用的的属性a_position的位置
+    var positionAttributeLocation = gl.getAttribLocation(program, "a_position");
+    //属性从缓存区中取数据，所以我们需要创建缓冲区。
+    var positionBuffer = gl.createBuffer();
+    //首先你绑定一个资源到某个绑定点，然后所有方法通过这个绑定点来对这个资源的访问。
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    // three 2d points
+    //现在我们通过绑定点把数据存放到缓冲区。
+
+    var positions = [
+        0, 0,
+        0, 0.5,
+        0.7, 0,
+    ];
+    //Javascript弱类型语言，而WebGL需要强类型数据，
+    // 需要用new Float32Array(positions)创建32位的浮点数数组，
+    // 然后用gl.bufferData函数将数组数据拷贝到GPU上的positionBuffer里面。
+    // 因为前面把positionBuffer绑定到了ARRAY_BUFFER，所以我们直接使用绑定点。
+    //最后一个参数gl.STATIC_DRAW提示WebGL如何使用数据，WebGL据此做相应的优化。
+    // gl.STATIC_DRAW 告诉WebGL我们不太可能去改变数据的值。
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+   //数据存放到缓存区后，接下来需要告诉属性如何从缓冲区取出数据。
+    // 首先，我需要创建属性状态集合：顶点数组对象(Vertex Array Object)。
+    var vao = gl.createVertexArray();
+
+    //为了使所有属性的设置能够应用到WebGL属性状态集，
+    // 我们需要绑定这个顶点数组到WebGL。
+    gl.bindVertexArray(vao);
+    //然后，我们还需要启用属性。如果没有开启这个属性，这个属性值会是一个常量。
+    gl.enableVertexAttribArray(positionAttributeLocation);
+
+    //接下来，我们需要设置属性值如何从缓存区取出数据。
+    var size = 2;          // 2 components per iteration
+    var type = gl.FLOAT;   // the data is 32bit floats
+    var normalize = false; // don't normalize the data
+    var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+    var offset = 0;        // start at the beginning of the buffer
+    gl.vertexAttribPointer(
+        positionAttributeLocation, size, type, normalize, stride, offset)
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.useProgram(program);
+    gl.bindVertexArray(vao);
+    var primitiveType = gl.TRIANGLES;
+    var offset = 0;
+    var count = 3;
+    gl.drawArrays(primitiveType, offset, count);
+</script>
+</html>

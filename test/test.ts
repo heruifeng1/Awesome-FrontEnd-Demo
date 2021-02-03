@@ -15,18 +15,11 @@ class EventBus {
     }
 
     emit(xxx: string) {
-        const abc = [12,23]
-        console.log(abc.f`ind)
-        const listens = this.listeners.filter(lister=>lister.type === xxx);
-        if(listens && listens.length){
-            listens.forEach(listen => {
-                (listen.cb) && listen.cb();
-            })
+        const listenr = this.listeners.find(lister=>lister.type === xxx);listenr
+        if(listenr){
+            listenr()
         }
     }
-}
-function isFunction(cb: Function) {
-    return typeof cb === 'function'
 }
 
 const eventBus = new EventBus();
